@@ -11,8 +11,10 @@ CHANNELS = 2
 RATE = 44100
 CHUNK = 1024
 RECORD_SECONDS = 5
-WAVE_OUTPUT_FILENAME = "recording.wav"
-WAVE_CLEANED_OUTPUT_FILENAME = "recording_cleaned.wav"
+WAVE_OUTPUT_FILENAME = "/tmp/recording.wav"
+WAVE_CLEANED_OUTPUT_FILENAME = "/tmp/recording-cleaned.wav"
+TRACK_TITLE_FILENAME = "/tmp/track-title.txt"
+NOISE_PROF_FILENAME = "/home/lorenzo/vinyl-shazam/noise.prof"
 HOME_ASSISTANT_ALEXA_WEBHOOK_URL = "https://assistant.home.internal/api/webhook/-cQrazrThINR-8JIO0dGhurYl"
 
 audio = pyaudio.PyAudio()
@@ -25,7 +27,7 @@ print("Recording...")
 frames = []
 
 for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-    data = stream.read(CHUNK, exception_on_overflow = False)
+    data = stream.read(CHUNK, exception_on_overflow=False)
     frames.append(data)
 print("Finished recording")
 
@@ -45,7 +47,7 @@ waveFile.close()
 print("Removing noise")
 import sox
 tfm = sox.Transformer()
-tfm.noisered(profile_path='noise.prof', amount=0.21)
+tfm.noisered(profile_path=NOISE_PROF_FILENAME, amount=0.21)
 tfm.build(WAVE_OUTPUT_FILENAME, WAVE_CLEANED_OUTPUT_FILENAME)
 
 # calling Shazam and Alexa
@@ -56,16 +58,27 @@ async def main():
 
   serialized = Serialize.full_track(out)
 
-  trackTitle = serialized.track.title + ' - ' + serialized.track.subtitle
+  trackTitle = serialized.track.title + ' di ' + serialized.track.subtitle
   print("Found " + trackTitle)
 
-  print("Sending to Alexa")
-  requests.post(HOME_ASSISTANT_ALEXA_WEBHOOK_URL, json={"title": trackTitle}, verify = False)
+  previousTrackTitle = ""
+
+  if os.path.exists(TRACK_TITLE_FILENAME):
+    f = open(TRACK_TITLE_FILENAME, "r")
+    previousTrackTitle = f.read()
+
+  if trackTitle != previousTrackTitle:
+    print("Sending to Alexa")
+    requests.post(HOME_ASSISTANT_ALEXA_WEBHOOK_URL, json={"title": trackTitle}, verify=False)
+
+    f = open(TRACK_TITLE_FILENAME, "w")
+    f.write(trackTitle)
+    f.close()
 
   print("Done")
 
-  os.unlink(WAVE_OUTPUT_FILENAME)
-  os.unlink(WAVE_CLEANED_OUTPUT_FILENAME)
+  #os.unlink(WAVE_OUTPUT_FILENAME)
+  #os.unlink(WAVE_CLEANED_OUTPUT_FILENAME)
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
