@@ -4,6 +4,8 @@ import wave
 import asyncio
 import os
 import sox
+import soundfile as sf
+import pyloudnorm as pyln
 from shazamio import Shazam, Serialize
 
 FORMAT = pyaudio.paInt16
@@ -50,6 +52,16 @@ tfm = sox.Transformer()
 tfm.noisered(profile_path=NOISE_PROF_FILENAME, amount=0.21)
 tfm.build(WAVE_OUTPUT_FILENAME, WAVE_CLEANED_OUTPUT_FILENAME)
 
+# check if some sound was detected
+
+data, rate = sf.read(WAVE_CLEANED_OUTPUT_FILENAME)
+meter = pyln.Meter(rate)
+loudness = meter.integrated_loudness(data)
+
+if (loudness < -20):
+  print("Quitting because no sound was detected")
+  quit()
+
 # calling Shazam and Alexa
 async def main():
   print("Calling Shazam")
@@ -58,27 +70,29 @@ async def main():
 
   serialized = Serialize.full_track(out)
 
-  trackTitle = serialized.track.title + ' di ' + serialized.track.subtitle
-  print("Found " + trackTitle)
+  if serialized.track is not None:
+    trackTitle = serialized.track.title + ' di ' + serialized.track.subtitle
+    print("Found " + trackTitle)
 
-  previousTrackTitle = ""
+    previousTrackTitle = ""
 
-  if os.path.exists(TRACK_TITLE_FILENAME):
-    f = open(TRACK_TITLE_FILENAME, "r")
-    previousTrackTitle = f.read()
+    if os.path.exists(TRACK_TITLE_FILENAME):
+        f = open(TRACK_TITLE_FILENAME, "r")
+        previousTrackTitle = f.read()
 
-  if trackTitle != previousTrackTitle:
-    print("Sending to Alexa")
-    requests.post(HOME_ASSISTANT_ALEXA_WEBHOOK_URL, json={"title": trackTitle}, verify=False)
+    if trackTitle != previousTrackTitle:
+        print("Sending to Alexa")
+        requests.post(HOME_ASSISTANT_ALEXA_WEBHOOK_URL, json={"title": trackTitle}, verify=False)
 
-    f = open(TRACK_TITLE_FILENAME, "w")
-    f.write(trackTitle)
-    f.close()
+        f = open(TRACK_TITLE_FILENAME, "w")
+        f.write(trackTitle)
+        f.close()
 
-  print("Done")
-
-  #os.unlink(WAVE_OUTPUT_FILENAME)
-  #os.unlink(WAVE_CLEANED_OUTPUT_FILENAME)
+        print("Done")
+    else:
+        print("Quitting because the song was already announced")
+  else:
+    print("Quitting because the song was not recognized")
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
