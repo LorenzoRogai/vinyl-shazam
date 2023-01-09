@@ -6,18 +6,26 @@ import os
 import sox
 import soundfile as sf
 import pyloudnorm as pyln
+import datetime
 from shazamio import Shazam, Serialize
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
 RATE = 44100
 CHUNK = 1024
-RECORD_SECONDS = 5
+RECORD_SECONDS = 10
 WAVE_OUTPUT_FILENAME = "/tmp/recording.wav"
 WAVE_CLEANED_OUTPUT_FILENAME = "/tmp/recording-cleaned.wav"
 TRACK_TITLE_FILENAME = "/tmp/track-title.txt"
 NOISE_PROF_FILENAME = "/home/lorenzo/vinyl-shazam/noise.prof"
 HOME_ASSISTANT_ALEXA_WEBHOOK_URL = "https://assistant.home.internal/api/webhook/-cQrazrThINR-8JIO0dGhurYl"
+
+# check Date
+now = datetime.datetime.now()
+hour = now.hour
+
+if hour not in range(18, 22):
+  quit()
 
 audio = pyaudio.PyAudio()
 
