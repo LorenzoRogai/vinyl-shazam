@@ -3,22 +3,18 @@ import pyaudio
 import wave
 import asyncio
 import os
-import sox
-import soundfile as sf
-import pyloudnorm as pyln
 import datetime
 from shazamio import Shazam, Serialize
 
 FORMAT = pyaudio.paInt16
-CHANNELS = 2
-RATE = 44100
+CHANNELS = 1
+RATE = 48000
 CHUNK = 1024
 RECORD_SECONDS = 10
 WAVE_OUTPUT_FILENAME = "/tmp/recording.wav"
-WAVE_CLEANED_OUTPUT_FILENAME = "/tmp/recording-cleaned.wav"
 TRACK_TITLE_FILENAME = "/tmp/track-title.txt"
-NOISE_PROF_FILENAME = "/home/lorenzo/vinyl-shazam/noise.prof"
 HOME_ASSISTANT_ALEXA_WEBHOOK_URL = "https://assistant.home.internal/api/webhook/-cQrazrThINR-8JIO0dGhurYl"
+INPUT_DEVICE_INDEX = 6
 
 # check Date
 now = datetime.datetime.now()
@@ -32,7 +28,8 @@ audio = pyaudio.PyAudio()
 # start Recording
 stream = audio.open(format=FORMAT, channels=CHANNELS,
                 rate=RATE, input=True,
-                frames_per_buffer=CHUNK)
+                frames_per_buffer=CHUNK,
+                input_device_index=INPUT_DEVICE_INDEX)
 print("Recording...")
 frames = []
 
@@ -53,28 +50,11 @@ waveFile.setframerate(RATE)
 waveFile.writeframes(b''.join(frames))
 waveFile.close()
 
-# removing Noise
-print("Removing noise")
-import sox
-tfm = sox.Transformer()
-tfm.noisered(profile_path=NOISE_PROF_FILENAME, amount=0.21)
-tfm.build(WAVE_OUTPUT_FILENAME, WAVE_CLEANED_OUTPUT_FILENAME)
-
-# check if some sound was detected
-
-data, rate = sf.read(WAVE_CLEANED_OUTPUT_FILENAME)
-meter = pyln.Meter(rate)
-loudness = meter.integrated_loudness(data)
-
-if (loudness < -20):
-  print("Quitting because no sound was detected")
-  quit()
-
 # calling Shazam and Alexa
 async def main():
   print("Calling Shazam")
   shazam = Shazam()
-  out = await shazam.recognize_song(WAVE_CLEANED_OUTPUT_FILENAME)
+  out = await shazam.recognize_song(WAVE_OUTPUT_FILENAME)
 
   serialized = Serialize.full_track(out)
 
