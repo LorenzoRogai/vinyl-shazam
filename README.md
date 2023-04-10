@@ -1,4 +1,4 @@
-# Vinyl Shazam Song Announcer
+# Vinyl Song Announcer
 
 Python + Shazam + Alexa (via Home Assistant) to recognize the song currently playing on the turntable and announce its title
 
